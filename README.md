@@ -1,11 +1,11 @@
 # 🦞 Moltbot — Personal AI Assistant
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/602b681d-74ee-401e-a11b-5d800886ea7b" alt="Clawdbot" width="400">
+  <img src="https://github.com/user-attachments/assets/602b681d-74ee-401e-a11b-5d800886ea7b" alt="Clawdbot" width="800">
 </p>
 
 <p align="center">
-  <strong>EXFOLIATE! EXFOLIATE!</strong>
+  <strong>EXFOLIATE! EXFOLIATE! Double Click</strong>
 </p>
 
 <p align="center">

@@ -5,12 +5,12 @@
 </p>
 
 <p align="center">
-  <strong>EXFOLIATE! EXFOLIATE! Double Click</strong>
+  <strong>EXFOLIATE! EXFOLIATE! Double Tap</strong>
 </p>
 
  **Jan 27, 2026** — I got hit with *dozens* of reviews about **clawd.bot**, and they’re all waving extreme red flags: *“You may be at risk,” “serious warnings,”* the whole deal. So yeah—time for a real deep dive and a proper investigation.
 
-Shoggoth rears its ugly head… **nah. Not today.**
+Shoggoth rears its ugly head… **nah. Not today.** <a href="https://youtube.com/shorts/uwxgLhCTTSI?si=q0-LEcYUFQsRTlPb">Double Tap</a>
 
 
 

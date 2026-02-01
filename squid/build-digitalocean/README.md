@@ -183,8 +183,4 @@ doctl --access-token "$DIGITALOCEAN_ACCESS_TOKEN" \
   ssh -vvv -i ~/.ssh/clawdbot_doctl_ed25519 root@<PublicIPv4>
   ```
 
-```
 
-If you want, paste the `grep -iE 'moltbot|openclaw|clawdbot'` output you see — I’ll tell you which `IMAGE_ID` line is the right one to standardize on.
-::contentReference[oaicite:0]{index=0}
-```

@@ -1,0 +1,21 @@
+PUBKEY="$(cat ~/.ssh/clawdbot_doctl_ed25519.pub)"
+
+cat > cloud-init-ssh.yaml <<EOF
+#cloud-config
+users:
+  - name: root
+    ssh_authorized_keys:
+      - ${PUBKEY}
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-clawdbot-ssh.conf
+    permissions: "0644"
+    content: |
+      PubkeyAuthentication yes
+      PermitRootLogin yes
+runcmd:
+  - mkdir -p /root/.ssh
+  - chmod 700 /root/.ssh
+  - 'grep -qxF "${PUBKEY}" /root/.ssh/authorized_keys || echo "${PUBKEY}" >> /root/.ssh/authorized_keys'
+  - chmod 600 /root/.ssh/authorized_keys
+  - (command -v systemctl >/dev/null 2>&1 && systemctl restart ssh || service ssh restart || true)
+EOF

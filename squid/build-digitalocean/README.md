@@ -192,6 +192,30 @@ doctl --access-token "$DIGITALOCEAN_ACCESS_TOKEN" \
 
   doctl --access-token "%DIGITALOCEAN_ACCESS_TOKEN%" compute droplet-action power-cycle %DROPLET_ID%
 
+  Credentials Stored 
+  /opt/clawdbot.env
+
+  Heartbeat running
+  /opt/clawdbot-tui.sh
+
+  SSH - see .ssh/config has user, ip and key information
+  ssh clawdbot root
+
+  SCP 
+  scp ./clawdbot.env root@<DROPLET_IP>:/opt/clawdbot.env
+  scp -i ~/.ssh/clawdbot_doctl_ed25519 ./clawdbot.env root@<DROPLET_IP>:/opt/clawdbot.env
+  scp -i ~/.ssh/clawdbot_doctl_ed25519 ~/.ssh/clawdbot-001.env root@<DROPLET_IP>:/opt/clawdbot.env
+
+  Tunnel To Access UI
+  ssh -L 18789:127.0.0.1:18789 clawuser@YOUR_IP
+
+  systemctl restart clawdbot
+
+  Clawdbot CLI 
+  /opt/clawdbot-cli.sh channels add 
+  /opt/clawdbot-cli.sh pairing approve telegram GXWL95JM
+
+
   ```
 
 

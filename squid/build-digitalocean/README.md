@@ -18,7 +18,7 @@ This README documents the **manual** (hand-run) steps to:
 - `doctl` installed
 - A DigitalOcean API token in your shell:
   ```bash
-  export DIGITALOCEAN_ACCESS_TOKEN="dop_v1_XXXXXXXXXXXXXXXX"
+  export DIGITALOCEAN_ACCESS_TOKEN="${PUDIGITALOCEAN_ACCESS_TOKEN}"
 ````
 
 * `ssh-keygen` available (usually already installed)
@@ -28,7 +28,7 @@ This README documents the **manual** (hand-run) steps to:
 ## 1) Find the Marketplace image ID
 
 List Marketplace app images and filter:
-
+OpenClaw  215320208
 ```bash
 doctl --access-token "$DIGITALOCEAN_ACCESS_TOKEN" \
   compute image list-application --format ID,Name --no-header \
@@ -181,6 +181,14 @@ doctl --access-token "$DIGITALOCEAN_ACCESS_TOKEN" \
 
   ```bash
   ssh -vvv -i ~/.ssh/clawdbot_doctl_ed25519 root@<PublicIPv4>
+
+
+  ```
+
+  ## My Notes and Quick Cheats
+  ```
+  Get SSH KEY
+  doctl compute ssh-key list --format ID,Name --no-header | grep -F "clawdbot-key"
   ```
 
 

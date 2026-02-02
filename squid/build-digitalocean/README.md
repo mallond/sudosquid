@@ -184,11 +184,14 @@ doctl --access-token "$DIGITALOCEAN_ACCESS_TOKEN" \
 
 
   ```
-
+ 
   ## My Notes and Quick Cheats
   ```
   Get SSH KEY
   doctl compute ssh-key list --format ID,Name --no-header | grep -F "clawdbot-key"
+
+  doctl --access-token "%DIGITALOCEAN_ACCESS_TOKEN%" compute droplet-action power-cycle %DROPLET_ID%
+
   ```
 
 

@@ -63,3 +63,40 @@ memory.md
 memory-search.ts
 memory-tool.ts
 memory-schema.ts (SQLite schema)
+
+Here’s the concrete trace for default memory (memory-core), from user message → retrieval → SQLite:
+
+Plugin provides memory tools
+
+The default memory slot is memory-core. slots.ts
+The memory-core plugin registers memory_search and memory_get tools.
+index.ts
+Tool list assembled for the agent
+
+Core tools are built in createOpenClawTools, then plugin tools are appended via resolvePluginTools.
+openclaw-tools.ts, tools.ts
+System prompt tells the model to use memory tools
+
+The prompt includes a Memory Recall section when memory_search/memory_get are available.
+system-prompt.ts
+The prompt is built with the final tool list.
+system-prompt.ts
+Model calls memory_search
+
+Tool implementation reads query, resolves agent ID, and gets a MemoryIndexManager.
+memory-tool.ts, search-manager.ts
+Memory index manager does semantic search
+
+Handles sync, embedding, hybrid search (vector + BM25), and returns snippets.
+manager.ts
+SQLite storage & search
+
+Schema includes meta, files, chunks, embedding_cache, and optional FTS table.
+memory-schema.ts
+Vector search uses SQLite (with sqlite-vec if available) and falls back to in‑process cosine similarity if vector extension isn’t available.
+manager-search.ts, manager.ts
+Model optionally calls memory_get
+
+Reads specific lines from MEMORY.md / *.md (or extra configured paths).
+memory-tool.ts, manager.ts
+That’s the “RAG” loop: tool‑driven retrieval → snippet injection → model response. Nothing is “trained”; it’s file‑backed memory plus semantic retrieval.

@@ -1,0 +1,55 @@
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-qwen3
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN:-}
+      # Optional: set after you confirm capability (see step 2)
+      # - TORCH_CUDA_ARCH_LIST=8.9
+    command: >
+      --host 0.0.0.0
+      --port 8000
+      --model Qwen/Qwen3-8B
+      --dtype half
+      --max-model-len 4096
+      --gpu-memory-utilization 0.80
+      --swap-space 8
+      --enforce-eager
+    gpus: all
+    shm_size: "2gb"
+    restart: unless-stopped
+
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - vllm
+
+  openclaw:
+    build:
+      context: ./openclaw
+    container_name: openclaw
+    ports:
+      - "18789:18789"
+    volumes:
+      - openclaw-home:/root/.openclaw
+    environment:
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme-supersecret}
+    command: >
+      bash -lc "openclaw gateway --bind lan --port 18789 --verbose"
+    depends_on:
+      - vllm
+
+volumes:
+  hf-cache:
+  open-webui:
+  openclaw-home:

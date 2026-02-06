@@ -1,0 +1,24 @@
+{
+  "gateway": { "mode": "local", "port": 18789 },
+  "models": {
+    "providers": {
+      "ollama": {
+        "baseUrl": "http://ollama:11434/v1",
+        "apiKey": "ollama-local",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3:8b",
+            "name": "Qwen3 8B",
+            "input": ["text"],
+            "reasoning": false,
+            "contextWindow": 40960,
+            "maxTokens": 409600,
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+          }
+        ]
+      }
+    }
+  },
+  "agents": { "defaults": { "model": { "primary": "ollama/qwen3:8b" } } }
+}

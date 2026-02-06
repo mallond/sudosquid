@@ -5,10 +5,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install git (needed because one dependency is fetched via git),
 # plus certs + ssh client (common for git+ssh or https)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git openssh-client ca-certificates \
+    git openssh-client ca-certificates bash curl \
  && rm -rf /var/lib/apt/lists/*
 
- # Feb 4, 20026
+# Pin OpenClaw version for reproducible builds
 RUN npm install -g openclaw@2026.2.3-1
 
 # Persist OpenClaw state/config
@@ -17,17 +17,7 @@ WORKDIR /data
 
 EXPOSE 18789
 
-CMD ["bash", "-lc", "\
-  mkdir -p /data && \
-  if [ ! -f /data/openclaw.json ]; then \
-    cat > /data/openclaw.json <<'JSON'\n\
-{\n\
-  \"gateway\": {\n\
-    \"mode\": \"local\",\n\
-    \"port\": 18789\n\
-  }\n\
-}\n\
-JSON\n\
-  fi && \
-  openclaw gateway --port 18789 --verbose \
-"]
+COPY start.sh /usr/local/bin/start-openclaw
+RUN chmod +x /usr/local/bin/start-openclaw
+
+CMD ["/usr/local/bin/start-openclaw"]

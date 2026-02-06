@@ -1,0 +1,82 @@
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    gpus: all
+    restart: unless-stopped
+
+  openclaw:
+    build:
+      context: ./openclaw
+    container_name: openclaw
+    ports:
+      - "18789:18789"
+    # IMPORTANT:
+    # Your Dockerfile bootstrap uses OPENCLAW_HOME=/data, but some builds also look in /root/.openclaw.
+    # We mount BOTH so config persists no matter which path your build uses.
+    volumes:
+      - openclaw-data:/data
+      - openclaw-home:/root/.openclaw
+    environment:
+      # Try to steer to /data, while still persisting /root/.openclaw above.
+      - OPENCLAW_HOME=/data
+
+      # Gateway auth token (used by Control UI / clients)
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme-supersecret}
+
+      # Ollama provider: any value works for the "key"
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-ollama-local}
+
+      # From inside this container, reach the ollama service by name
+      - OLLAMA_HOST=http://ollama:11434
+
+      # Optional knobs
+      - OPENCLAW_PORT=18789
+      - OPENCLAW_BIND=lan
+      - OPENCLAW_VERBOSE=--verbose
+    # Ensure a valid config exists in BOTH likely locations, then start gateway normally
+    command: >
+      bash -lc "
+        set -euo pipefail;
+        CFG='{
+          \"gateway\": { \"mode\": \"local\", \"port\": 18789 },
+          \"models\": {
+            \"providers\": {
+              \"ollama\": {
+                \"baseUrl\": \"http://ollama:11434/v1\",
+                \"apiKey\": \"ollama-local\",
+                \"api\": \"openai-completions\",
+                \"models\": [
+                  {
+                    \"id\": \"qwen3:8b\",
+                    \"name\": \"Qwen3 8B\",
+                    \"input\": [\"text\"],
+                    \"reasoning\": false,
+                    \"contextWindow\": 8192,
+                    \"maxTokens\": 81920,
+                    \"cost\": { \"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0 }
+                  }
+                ]
+              }
+            }
+          },
+          \"agents\": { \"defaults\": { \"model\": { \"primary\": \"ollama/qwen3:8b\" } } }
+        }';
+        mkdir -p /data /root/.openclaw;
+        if [ ! -f /data/openclaw.json ]; then echo \"$CFG\" > /data/openclaw.json; fi;
+        if [ ! -f /root/.openclaw/openclaw.json ]; then echo \"$CFG\" > /root/.openclaw/openclaw.json; fi;
+        openclaw gateway --bind lan --port 18789 --verbose
+      "
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama:
+  openclaw-data:
+  openclaw-home:

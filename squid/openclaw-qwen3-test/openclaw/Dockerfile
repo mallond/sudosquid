@@ -1,23 +1,22 @@
+
 FROM node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install git (needed because one dependency is fetched via git),
-# plus certs + ssh client (common for git+ssh or https)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git openssh-client ca-certificates bash curl \
  && rm -rf /var/lib/apt/lists/*
 
-# Pin OpenClaw version for reproducible builds
-RUN npm install -g openclaw@2026.2.3-1
+RUN npm install -g openclaw@2026.2.3-1 pm2
 
-# Persist OpenClaw state/config
-ENV OPENCLAW_HOME=/data
+ENV OPENCLAW_STATE_DIR=/data
+ENV OPENCLAW_CONFIG_PATH=/data/openclaw.json
+ENV HOME=/data
+
 WORKDIR /data
-
 EXPOSE 18789
 
-COPY start.sh /usr/local/bin/start-openclaw
-RUN chmod +x /usr/local/bin/start-openclaw
+COPY ecosystem.config.cjs /data/ecosystem.config.cjs
 
-CMD ["/usr/local/bin/start-openclaw"]
+CMD ["pm2-runtime", "/data/ecosystem.config.cjs"]
+

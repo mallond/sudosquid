@@ -19,16 +19,16 @@ services:
       - OLLAMA_API_KEY=${OLLAMA_API_KEY:-ollama-local}
       - OLLAMA_HOST=http://ollama:11434
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme-supersecret}
+      - HOME=/data
+      - OPENCLAW_STATE_DIR=/data
+      - OPENCLAW_CONFIG_PATH=/data/openclaw.json
     volumes:
-      # Persist state
-      - openclaw-home:/root/.openclaw
-      # Mount a known-good config file (no heredoc/quoting issues)
-      - ./openclaw/openclaw.json:/root/.openclaw/openclaw.json:ro
+      - openclaw-data:/data
     depends_on:
       - ollama
     restart: unless-stopped
-    command: ["bash", "-lc", "chmod 600 /root/.openclaw/openclaw.json || true; exec openclaw gateway --bind lan --port 18789 --verbose"]
-
+    # IMPORTANT: remove command override so Dockerfile CMD (pm2-runtime) is used
+    # command: ...
 volumes:
   ollama:
-  openclaw-home:
+  openclaw-data:

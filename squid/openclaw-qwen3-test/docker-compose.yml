@@ -24,11 +24,13 @@ services:
       - OPENCLAW_CONFIG_PATH=/data/openclaw.json
     volumes:
       - openclaw-data:/data
+      - ./openclaw/openclaw.json:/data/openclaw.json
     depends_on:
       - ollama
     restart: unless-stopped
     # IMPORTANT: remove command override so Dockerfile CMD (pm2-runtime) is used
     # command: ...
+
 volumes:
   ollama:
   openclaw-data:

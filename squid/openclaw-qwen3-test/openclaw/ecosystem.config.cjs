@@ -1,11 +1,17 @@
 module.exports = {
   apps: [
+{
+  name: "keepalive",
+  script: "/data/dummy.js",   // create this tiny file next to ecosystem.config.js
+  exec_mode: "fork",
+  autorestart: true
+},
     {
       name: "openclaw-gateway",
       script: "/usr/local/bin/openclaw",
       args: "gateway --bind lan --port 18789 --verbose",
       exec_mode: "fork",
-      autorestart: true,
+      autorestart: false,
       max_restarts: 10,
       restart_delay: 1000,
       env: {
@@ -14,6 +20,7 @@ module.exports = {
         HOME: "/data"
       }
     }
+    
   ]
 };
 

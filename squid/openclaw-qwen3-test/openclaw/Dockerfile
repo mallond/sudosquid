@@ -17,6 +17,7 @@ WORKDIR /data
 EXPOSE 18789
 
 COPY ecosystem.config.cjs /data/ecosystem.config.cjs
+COPY dummy.js /data/dummy.js
 
 CMD ["pm2-runtime", "/data/ecosystem.config.cjs"]
 

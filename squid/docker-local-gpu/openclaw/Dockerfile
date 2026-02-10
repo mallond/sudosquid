@@ -2,32 +2,16 @@ FROM node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install git (needed because one dependency is fetched via git),
-# plus certs + ssh client (common for git+ssh or https)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git openssh-client ca-certificates \
+    git openssh-client ca-certificates bash curl \
  && rm -rf /var/lib/apt/lists/*
 
- # Feb 4, 20026
-RUN npm install -g openclaw@2026.2.3-1
-
-# Persist OpenClaw state/config
-ENV OPENCLAW_HOME=/data
-WORKDIR /data
+RUN npm install -g openclaw@2026.2.9 pm2
 
 EXPOSE 18789
 
-CMD ["bash", "-lc", "\
-  mkdir -p /data && \
-  if [ ! -f /data/openclaw.json ]; then \
-    cat > /data/openclaw.json <<'JSON'\n\
-{\n\
-  \"gateway\": {\n\
-    \"mode\": \"local\",\n\
-    \"port\": 18789\n\
-  }\n\
-}\n\
-JSON\n\
-  fi && \
-  openclaw gateway --port 18789 --verbose \
-"]
+COPY ./config/openclaw.json /root/.openclaw/openclaw.json
+COPY ecosystem.config.cjs ecosystem.config.cjs
+COPY dummy.js dummy.js
+
+CMD ["pm2-runtime", "/data/ecosystem.config.cjs"]

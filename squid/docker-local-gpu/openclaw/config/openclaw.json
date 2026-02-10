@@ -1,5 +1,4 @@
 {
-  "gateway": { "mode": "local", "port": 18789 },
   "models": {
     "providers": {
       "ollama": {
@@ -10,15 +9,62 @@
           {
             "id": "qwen3:8b",
             "name": "Qwen3 8B",
-            "input": ["text"],
             "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
             "contextWindow": 40960,
-            "maxTokens": 409600,
-            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+            "maxTokens": 40960
           }
         ]
       }
     }
   },
-  "agents": { "defaults": { "model": { "primary": "ollama/qwen3:8b" } } }
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "ollama/qwen3:8b"
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      },
+      "workspace": "/root/.openclaw/workspace"
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto"
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    }
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": ""
+    }
+  }
 }

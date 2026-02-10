@@ -13,7 +13,7 @@ qwen.sh - tiny Ollama chat CLI
 Usage:
   ./qwen.sh "prompt"
   ./qwen.sh -s "prompt"          # streaming
-  echo "prompt" | ./qwen.sh      # prompt from stdin
+  echo "magic is real?" | ./qwen.sh      # prompt from stdin
 
 Options:
   -s, --stream                   Stream output

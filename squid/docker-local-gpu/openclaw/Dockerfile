@@ -6,13 +6,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git openssh-client ca-certificates bash curl \
  && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g openclaw@2026.2.9 pm2 \
+RUN npm install -g openclaw@2026.2.9 \
     openclaw onboard --install-daemon
 
 EXPOSE 18789
 
-COPY ./config/openclaw.json /root/.openclaw/openclaw.json
-COPY ecosystem.config.cjs ecosystem.config.cjs
-COPY dummy.js dummy.js
+COPY ./openclaw.json /root/.openclaw/openclaw.json
 
-CMD ["pm2-runtime", "/data/ecosystem.config.cjs"]
+

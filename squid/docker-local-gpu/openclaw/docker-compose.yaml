@@ -10,4 +10,8 @@ services:
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme-supersecret}
     command: >
       bash -lc "openclaw gateway --bind lan --port 18789 --allow-unconfigured --verbose"
-
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # http://host.docker.internal:11434 routes from container ->
+    # host -> published Ollama port, 
+    # which works across separate compose projects.

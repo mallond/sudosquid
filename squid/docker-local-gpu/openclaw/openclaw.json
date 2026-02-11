@@ -52,7 +52,10 @@
     }
   },
   "messages": {
-    "ackReactionScope": "group-mentions"
+    "ackReactionScope": "group-mentions",
+    "tts": {
+      "auto": "off"
+    }
   },
   "plugins": {
     "entries": {

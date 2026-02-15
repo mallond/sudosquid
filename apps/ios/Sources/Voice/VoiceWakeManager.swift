@@ -97,6 +97,7 @@ final class VoiceWakeManager: NSObject {
     private var lastDispatched: String?
     private var onCommand: (@Sendable (String) async -> Void)?
     private var userDefaultsObserver: NSObjectProtocol?
+    private var suppressedByTalk: Bool = false
 
     override init() {
         super.init()
@@ -142,9 +143,28 @@ final class VoiceWakeManager: NSObject {
         }
     }
 
+    func setSuppressedByTalk(_ suppressed: Bool) {
+        self.suppressedByTalk = suppressed
+        if suppressed {
+            _ = self.suspendForExternalAudioCapture()
+            if self.isEnabled {
+                self.statusText = "Paused"
+            }
+        } else {
+            if self.isEnabled {
+                Task { await self.start() }
+            }
+        }
+    }
+
     func start() async {
         guard self.isEnabled else { return }
         if self.isListening { return }
+        guard !self.suppressedByTalk else {
+            self.isListening = false
+            self.statusText = "Paused"
+            return
+        }
 
         if ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != nil ||
             ProcessInfo.processInfo.environment["SIMULATOR_UDID"] != nil

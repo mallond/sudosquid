@@ -274,28 +274,6 @@ function buildChatCommands(): ChatCommandDefinition[] {
       argsMenu: "auto",
     }),
     defineChatCommand({
-      key: "ptt",
-      nativeName: "ptt",
-      description: "Push-to-talk controls for a paired node.",
-      textAlias: "/ptt",
-      acceptsArgs: true,
-      argsParsing: "none",
-      category: "tools",
-      args: [
-        {
-          name: "action",
-          description: "start, stop, once, or cancel",
-          type: "string",
-          choices: ["start", "stop", "once", "cancel"],
-        },
-        {
-          name: "node",
-          description: "node=<id> (optional)",
-          type: "string",
-        },
-      ],
-    }),
-    defineChatCommand({
       key: "config",
       nativeName: "config",
       description: "Show or set config values.",
@@ -431,9 +409,9 @@ function buildChatCommands(): ChatCommandDefinition[] {
     }),
     defineChatCommand({
       key: "compact",
+      nativeName: "compact",
       description: "Compact the session context.",
       textAlias: "/compact",
-      scope: "text",
       category: "session",
       args: [
         {

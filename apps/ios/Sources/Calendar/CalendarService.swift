@@ -100,11 +100,8 @@ final class CalendarService: CalendarServicing {
         case .authorized:
             return true
         case .notDetermined:
-            return await withCheckedContinuation { cont in
-                store.requestAccess(to: .event) { granted, _ in
-                    cont.resume(returning: granted)
-                }
-            }
+            // Don’t prompt during node.invoke; prompts block the invoke and lead to timeouts.
+            return false
         case .restricted, .denied:
             return false
         case .fullAccess:
@@ -121,11 +118,8 @@ final class CalendarService: CalendarServicing {
         case .authorized, .fullAccess, .writeOnly:
             return true
         case .notDetermined:
-            return await withCheckedContinuation { cont in
-                store.requestAccess(to: .event) { granted, _ in
-                    cont.resume(returning: granted)
-                }
-            }
+            // Don’t prompt during node.invoke; prompts block the invoke and lead to timeouts.
+            return false
         case .restricted, .denied:
             return false
         @unknown default:

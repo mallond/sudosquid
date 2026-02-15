@@ -9,6 +9,12 @@ final class MotionService: MotionServicing {
                 NSLocalizedDescriptionKey: "MOTION_UNAVAILABLE: activity not supported on this device",
             ])
         }
+        let auth = CMMotionActivityManager.authorizationStatus()
+        guard auth == .authorized else {
+            throw NSError(domain: "Motion", code: 3, userInfo: [
+                NSLocalizedDescriptionKey: "MOTION_PERMISSION_REQUIRED: grant Motion & Fitness permission",
+            ])
+        }
 
         let (start, end) = Self.resolveRange(startISO: params.startISO, endISO: params.endISO)
         let limit = max(1, min(params.limit ?? 200, 1000))
@@ -45,6 +51,12 @@ final class MotionService: MotionServicing {
         guard CMPedometer.isStepCountingAvailable() else {
             throw NSError(domain: "Motion", code: 2, userInfo: [
                 NSLocalizedDescriptionKey: "PEDOMETER_UNAVAILABLE: step counting not supported",
+            ])
+        }
+        let auth = CMPedometer.authorizationStatus()
+        guard auth == .authorized else {
+            throw NSError(domain: "Motion", code: 4, userInfo: [
+                NSLocalizedDescriptionKey: "MOTION_PERMISSION_REQUIRED: grant Motion & Fitness permission",
             ])
         }
 

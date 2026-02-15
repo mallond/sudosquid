@@ -105,11 +105,8 @@ final class RemindersService: RemindersServicing {
         case .authorized:
             return true
         case .notDetermined:
-            return await withCheckedContinuation { cont in
-                store.requestAccess(to: .reminder) { granted, _ in
-                    cont.resume(returning: granted)
-                }
-            }
+            // Don’t prompt during node.invoke; prompts block the invoke and lead to timeouts.
+            return false
         case .restricted, .denied:
             return false
         case .fullAccess:
@@ -126,11 +123,8 @@ final class RemindersService: RemindersServicing {
         case .authorized, .fullAccess, .writeOnly:
             return true
         case .notDetermined:
-            return await withCheckedContinuation { cont in
-                store.requestAccess(to: .reminder) { granted, _ in
-                    cont.resume(returning: granted)
-                }
-            }
+            // Don’t prompt during node.invoke; prompts block the invoke and lead to timeouts.
+            return false
         case .restricted, .denied:
             return false
         @unknown default:

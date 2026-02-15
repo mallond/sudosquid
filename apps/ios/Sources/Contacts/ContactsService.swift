@@ -117,11 +117,9 @@ final class ContactsService: ContactsServicing {
         case .authorized, .limited:
             return true
         case .notDetermined:
-            return await withCheckedContinuation { cont in
-                store.requestAccess(for: .contacts) { granted, _ in
-                    cont.resume(returning: granted)
-                }
-            }
+            // Don’t prompt during node.invoke; the caller should instruct the user to grant permission.
+            // Prompts block the invoke and lead to timeouts in headless flows.
+            return false
         case .restricted, .denied:
             return false
         @unknown default:

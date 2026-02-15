@@ -64,6 +64,7 @@ actor GatewayConnection {
         case wizardNext = "wizard.next"
         case wizardCancel = "wizard.cancel"
         case wizardStatus = "wizard.status"
+        case talkConfig = "talk.config"
         case talkMode = "talk.mode"
         case webLoginStart = "web.login.start"
         case webLoginWait = "web.login.wait"
@@ -360,12 +361,11 @@ actor GatewayConnection {
             await client.shutdown()
         }
         self.lastSnapshot = nil
-        let resolvedSessionBox = self.sessionBox ?? Self.buildSessionBox(url: url)
         self.client = GatewayChannelActor(
             url: url,
             token: token,
             password: password,
-            session: resolvedSessionBox,
+            session: self.sessionBox,
             pushHandler: { [weak self] push in
                 await self?.handle(push: push)
             })
@@ -380,21 +380,6 @@ actor GatewayConnection {
 
     private static func defaultConfigProvider() async throws -> Config {
         try await GatewayEndpointStore.shared.requireConfig()
-    }
-
-    private static func buildSessionBox(url: URL) -> WebSocketSessionBox? {
-        guard url.scheme?.lowercased() == "wss" else { return nil }
-        let host = url.host ?? "gateway"
-        let port = url.port ?? 443
-        let stableID = "\(host):\(port)"
-        let stored = GatewayTLSStore.loadFingerprint(stableID: stableID)
-        let params = GatewayTLSParams(
-            required: true,
-            expectedFingerprint: stored,
-            allowTOFU: true,
-            storeKey: stableID)
-        let session = GatewayTLSPinningSession(params: params)
-        return WebSocketSessionBox(session: session)
     }
 }
 

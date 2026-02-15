@@ -1,311 +1,390 @@
+import Foundation
 import SwiftUI
-import UIKit
 
 struct GatewayOnboardingView: View {
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("Connect to your gateway to get started.")
+                        .foregroundStyle(.secondary)
+                }
+
+                Section {
+                    NavigationLink("Auto detect") {
+                        AutoDetectStep()
+                    }
+                    NavigationLink("Manual entry") {
+                        ManualEntryStep()
+                    }
+                }
+            }
+            .navigationTitle("Connect Gateway")
+        }
+        .gatewayTrustPromptAlert()
+    }
+}
+
+private struct AutoDetectStep: View {
     @Environment(NodeAppModel.self) private var appModel: NodeAppModel
     @Environment(GatewayConnectionController.self) private var gatewayController: GatewayConnectionController
     @AppStorage("gateway.preferredStableID") private var preferredGatewayStableID: String = ""
     @AppStorage("gateway.lastDiscoveredStableID") private var lastDiscoveredGatewayStableID: String = ""
-    @AppStorage("gateway.manual.enabled") private var manualGatewayEnabled: Bool = false
-    @AppStorage("gateway.manual.host") private var manualGatewayHost: String = ""
-    @AppStorage("gateway.manual.port") private var manualGatewayPort: Int = 18789
-    @AppStorage("gateway.manual.tls") private var manualGatewayTLS: Bool = true
-    @State private var connectStatusText: String?
+
     @State private var connectingGatewayID: String?
-    @State private var showManualEntry: Bool = false
-    @State private var manualGatewayPortText: String = ""
+    @State private var connectStatusText: String?
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Text("Connect to your gateway to get started.")
-                    LabeledContent("Discovery", value: self.gatewayController.discoveryStatusText)
-                    LabeledContent("Status", value: self.appModel.gatewayStatusText)
+        Form {
+            Section {
+                Text("We’ll scan for gateways on your network and connect automatically when we find one.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Connection status") {
+                ConnectionStatusBox(
+                    statusLines: self.connectionStatusLines(),
+                    secondaryLine: self.connectStatusText)
+            }
+
+            Section {
+                Button("Retry") {
+                    self.resetConnectionState()
+                    self.triggerAutoConnect()
                 }
-
-                Section("Gateways") {
-                    self.gatewayList()
-                }
-
-                Section {
-                    DisclosureGroup(isExpanded: self.$showManualEntry) {
-                        TextField("Host", text: self.$manualGatewayHost)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-
-                        TextField("Port (optional)", text: self.manualPortBinding)
-                            .keyboardType(.numberPad)
-
-                        Toggle("Use TLS", isOn: self.$manualGatewayTLS)
-
-                        Button {
-                            Task { await self.connectManual() }
-                        } label: {
-                            if self.connectingGatewayID == "manual" {
-                                HStack(spacing: 8) {
-                                    ProgressView()
-                                        .progressViewStyle(.circular)
-                                    Text("Connecting...")
-                                }
-                            } else {
-                                Text("Connect manual gateway")
-                            }
-                        }
-                        .disabled(self.connectingGatewayID != nil || self.manualGatewayHost
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                            .isEmpty || !self.manualPortIsValid)
-
-                        Button("Paste gateway URL") {
-                            self.pasteGatewayURL()
-                        }
-
-                        Text(
-                            "Use this when discovery is blocked. "
-                                + "Leave port empty for 443 on tailnet DNS (TLS) or 18789 otherwise.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    } label: {
-                        Text("Manual gateway")
-                    }
-                }
-
-                if let text = self.connectStatusText {
-                    Section {
-                        Text(text)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                .disabled(self.connectingGatewayID != nil)
+            }
         }
-            .navigationTitle("Connect Gateway")
-            .onAppear {
-                self.syncManualPortText()
-            }
-            .onChange(of: self.manualGatewayPort) { _, _ in
-                self.syncManualPortText()
-            }
-            .onChange(of: self.appModel.gatewayServerName) { _, _ in
-                self.connectStatusText = nil
-            }
+        .navigationTitle("Auto detect")
+        .onAppear { self.triggerAutoConnect() }
+        .onChange(of: self.gatewayController.gateways) { _, _ in
+            self.triggerAutoConnect()
         }
     }
 
-    @ViewBuilder
-    private func gatewayList() -> some View {
-        if self.gatewayController.gateways.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("No gateways found yet.")
-                    .foregroundStyle(.secondary)
-                Text("Make sure you are on the same Wi-Fi as your gateway, or your tailnet DNS is set.")
+    private func triggerAutoConnect() {
+        guard self.appModel.gatewayServerName == nil else { return }
+        guard self.connectingGatewayID == nil else { return }
+        guard let candidate = self.autoCandidate() else { return }
+
+        self.connectingGatewayID = candidate.id
+        Task {
+            defer { self.connectingGatewayID = nil }
+            await self.gatewayController.connect(candidate)
+        }
+    }
+
+    private func autoCandidate() -> GatewayDiscoveryModel.DiscoveredGateway? {
+        let preferred = self.preferredGatewayStableID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lastDiscovered = self.lastDiscoveredGatewayStableID.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !preferred.isEmpty,
+           let match = self.gatewayController.gateways.first(where: { $0.stableID == preferred })
+        {
+            return match
+        }
+        if !lastDiscovered.isEmpty,
+           let match = self.gatewayController.gateways.first(where: { $0.stableID == lastDiscovered })
+        {
+            return match
+        }
+        if self.gatewayController.gateways.count == 1 {
+            return self.gatewayController.gateways.first
+        }
+        return nil
+    }
+
+    private func connectionStatusLines() -> [String] {
+        ConnectionStatusBox.defaultLines(appModel: self.appModel, gatewayController: self.gatewayController)
+    }
+
+    private func resetConnectionState() {
+        self.appModel.disconnectGateway()
+        self.connectStatusText = nil
+        self.connectingGatewayID = nil
+    }
+}
+
+private struct ManualEntryStep: View {
+    @Environment(NodeAppModel.self) private var appModel: NodeAppModel
+    @Environment(GatewayConnectionController.self) private var gatewayController: GatewayConnectionController
+
+    @State private var setupCode: String = ""
+    @State private var setupStatusText: String?
+    @State private var manualHost: String = ""
+    @State private var manualPortText: String = ""
+    @State private var manualUseTLS: Bool = true
+    @State private var manualToken: String = ""
+    @State private var manualPassword: String = ""
+
+    @State private var connectingGatewayID: String?
+    @State private var connectStatusText: String?
+
+    var body: some View {
+        Form {
+            Section("Setup code") {
+                Text("Use /pair in your bot to get a setup code.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
-                if let lastKnown = GatewaySettingsStore.loadLastGatewayConnection() {
-                    Button {
-                        Task { await self.connectLastKnown() }
-                    } label: {
-                        self.lastKnownButtonLabel(host: lastKnown.host, port: lastKnown.port)
-                    }
-                    .disabled(self.connectingGatewayID != nil)
-                    .buttonStyle(.borderedProminent)
-                    .tint(self.appModel.seamColor)
+                TextField("Paste setup code", text: self.$setupCode)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                Button("Apply setup code") {
+                    self.applySetupCode()
                 }
-            }
-        } else {
-            ForEach(self.gatewayController.gateways) { gateway in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(gateway.name)
-                        let detailLines = self.gatewayDetailLines(gateway)
-                        ForEach(detailLines, id: \.self) { line in
-                            Text(line)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
+                .disabled(self.setupCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-                    Button {
-                        Task { await self.connect(gateway) }
-                    } label: {
-                        if self.connectingGatewayID == gateway.id {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                        } else {
-                            Text("Connect")
-                        }
-                    }
-                    .disabled(self.connectingGatewayID != nil)
-                }
-            }
-        }
-    }
-
-    private func connect(_ gateway: GatewayDiscoveryModel.DiscoveredGateway) async {
-        self.connectingGatewayID = gateway.id
-        self.manualGatewayEnabled = false
-        self.preferredGatewayStableID = gateway.stableID
-        GatewaySettingsStore.savePreferredGatewayStableID(gateway.stableID)
-        self.lastDiscoveredGatewayStableID = gateway.stableID
-        GatewaySettingsStore.saveLastDiscoveredGatewayStableID(gateway.stableID)
-        defer { self.connectingGatewayID = nil }
-        await self.gatewayController.connect(gateway)
-    }
-
-    private func connectLastKnown() async {
-        self.connectingGatewayID = "last-known"
-        defer { self.connectingGatewayID = nil }
-        await self.gatewayController.connectLastKnown()
-    }
-
-    private var manualPortBinding: Binding<String> {
-        Binding(
-            get: { self.manualGatewayPortText },
-            set: { newValue in
-                let filtered = newValue.filter(\.isNumber)
-                if self.manualGatewayPortText != filtered {
-                    self.manualGatewayPortText = filtered
-                }
-                if filtered.isEmpty {
-                    if self.manualGatewayPort != 0 {
-                        self.manualGatewayPort = 0
-                    }
-                } else if let port = Int(filtered), self.manualGatewayPort != port {
-                    self.manualGatewayPort = port
-                }
-            })
-    }
-
-    private var manualPortIsValid: Bool {
-        if self.manualGatewayPortText.isEmpty { return true }
-        return self.manualGatewayPort >= 1 && self.manualGatewayPort <= 65535
-    }
-
-    private func syncManualPortText() {
-        if self.manualGatewayPort > 0 {
-            let next = String(self.manualGatewayPort)
-            if self.manualGatewayPortText != next {
-                self.manualGatewayPortText = next
-            }
-        } else if !self.manualGatewayPortText.isEmpty {
-            self.manualGatewayPortText = ""
-        }
-    }
-
-    @ViewBuilder
-    private func lastKnownButtonLabel(host: String, port: Int) -> some View {
-        if self.connectingGatewayID == "last-known" {
-            HStack(spacing: 8) {
-                ProgressView()
-                    .progressViewStyle(.circular)
-                Text("Connecting...")
-            }
-            .frame(maxWidth: .infinity)
-        } else {
-            HStack(spacing: 8) {
-                Image(systemName: "bolt.horizontal.circle.fill")
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Connect last known")
-                    Text("\(host):\(port)")
+                if let setupStatusText, !setupStatusText.isEmpty {
+                    Text(setupStatusText)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
             }
-            .frame(maxWidth: .infinity)
+
+            Section {
+                TextField("Host", text: self.$manualHost)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                TextField("Port", text: self.$manualPortText)
+                    .keyboardType(.numberPad)
+
+                Toggle("Use TLS", isOn: self.$manualUseTLS)
+
+                TextField("Gateway token", text: self.$manualToken)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                SecureField("Gateway password", text: self.$manualPassword)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+
+            Section("Connection status") {
+                ConnectionStatusBox(
+                    statusLines: self.connectionStatusLines(),
+                    secondaryLine: self.connectStatusText)
+            }
+
+            Section {
+                Button {
+                    Task { await self.connectManual() }
+                } label: {
+                    if self.connectingGatewayID == "manual" {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                            Text("Connecting…")
+                        }
+                    } else {
+                        Text("Connect")
+                    }
+                }
+                .disabled(self.connectingGatewayID != nil)
+
+                Button("Retry") {
+                    self.resetConnectionState()
+                    self.resetManualForm()
+                }
+                .disabled(self.connectingGatewayID != nil)
+            }
         }
+        .navigationTitle("Manual entry")
     }
 
     private func connectManual() async {
-        let host = self.manualGatewayHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        let host = self.manualHost.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !host.isEmpty else {
             self.connectStatusText = "Failed: host required"
             return
         }
-        guard self.manualPortIsValid else {
+
+        if let port = self.manualPortValue(), !(1...65535).contains(port) {
             self.connectStatusText = "Failed: invalid port"
             return
         }
 
-        self.connectingGatewayID = "manual"
-        self.manualGatewayEnabled = true
-        defer { self.connectingGatewayID = nil }
+        let defaults = UserDefaults.standard
+        defaults.set(true, forKey: "gateway.manual.enabled")
+        defaults.set(host, forKey: "gateway.manual.host")
+        defaults.set(self.manualPortValue() ?? 0, forKey: "gateway.manual.port")
+        defaults.set(self.manualUseTLS, forKey: "gateway.manual.tls")
 
+        if let instanceId = defaults.string(forKey: "node.instanceId")?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !instanceId.isEmpty
+        {
+            let trimmedToken = self.manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedPassword = self.manualPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedToken.isEmpty {
+                GatewaySettingsStore.saveGatewayToken(trimmedToken, instanceId: instanceId)
+            }
+            GatewaySettingsStore.saveGatewayPassword(trimmedPassword, instanceId: instanceId)
+        }
+
+        self.connectingGatewayID = "manual"
+        defer { self.connectingGatewayID = nil }
         await self.gatewayController.connectManual(
             host: host,
-            port: self.manualGatewayPort,
-            useTLS: self.manualGatewayTLS)
+            port: self.manualPortValue() ?? 0,
+            useTLS: self.manualUseTLS)
     }
 
-    private func pasteGatewayURL() {
-        guard let text = UIPasteboard.general.string else {
-            self.connectStatusText = "Clipboard is empty."
+    private func manualPortValue() -> Int? {
+        let trimmed = self.manualPortText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return Int(trimmed.filter { $0.isNumber })
+    }
+
+    private func connectionStatusLines() -> [String] {
+        ConnectionStatusBox.defaultLines(appModel: self.appModel, gatewayController: self.gatewayController)
+    }
+
+    private func resetConnectionState() {
+        self.appModel.disconnectGateway()
+        self.connectStatusText = nil
+        self.connectingGatewayID = nil
+    }
+
+    private func resetManualForm() {
+        self.setupCode = ""
+        self.setupStatusText = nil
+        self.manualHost = ""
+        self.manualPortText = ""
+        self.manualUseTLS = true
+        self.manualToken = ""
+        self.manualPassword = ""
+    }
+
+    private struct SetupPayload: Codable {
+        var url: String?
+        var host: String?
+        var port: Int?
+        var tls: Bool?
+        var token: String?
+        var password: String?
+    }
+
+    private func applySetupCode() {
+        let raw = self.setupCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else {
+            self.setupStatusText = "Paste a setup code to continue."
             return
         }
-        if self.applyGatewayInput(text) {
-            self.connectStatusText = nil
-            self.showManualEntry = true
-        } else {
-            self.connectStatusText = "Could not parse gateway URL."
+
+        guard let payload = self.decodeSetupPayload(raw: raw) else {
+            self.setupStatusText = "Setup code not recognized."
+            return
         }
-    }
 
-    private func applyGatewayInput(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-
-        if let components = URLComponents(string: trimmed),
-           let host = components.host?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !host.isEmpty
-        {
-            let scheme = components.scheme?.lowercased()
-            let defaultPort: Int = {
-                let hostLower = host.lowercased()
-                if (scheme == "wss" || scheme == "https"), hostLower.hasSuffix(".ts.net") {
-                    return 443
-                }
-                return 18789
-            }()
-            let port = components.port ?? defaultPort
-            if scheme == "wss" || scheme == "https" {
-                self.manualGatewayTLS = true
-            } else if scheme == "ws" || scheme == "http" {
-                self.manualGatewayTLS = false
+        if let urlString = payload.url, let url = URL(string: urlString) {
+            self.applyURL(url)
+        } else if let host = payload.host, !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self.manualHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let port = payload.port {
+                self.manualPortText = String(port)
+            } else {
+                self.manualPortText = ""
             }
-            self.manualGatewayHost = host
-            self.manualGatewayPort = port
-            self.manualGatewayPortText = String(port)
-            return true
+            if let tls = payload.tls {
+                self.manualUseTLS = tls
+            }
+        } else if let url = URL(string: raw), url.scheme != nil {
+            self.applyURL(url)
+        } else {
+            self.setupStatusText = "Setup code missing URL or host."
+            return
         }
 
-        if let hostPort = SettingsNetworkingHelpers.parseHostPort(from: trimmed) {
-            self.manualGatewayHost = hostPort.host
-            self.manualGatewayPort = hostPort.port
-            self.manualGatewayPortText = String(hostPort.port)
-            return true
+        if let token = payload.token, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self.manualToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let password = payload.password, !password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self.manualPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        return false
+        self.setupStatusText = "Setup code applied."
     }
 
-    private func gatewayDetailLines(_ gateway: GatewayDiscoveryModel.DiscoveredGateway) -> [String] {
-        var lines: [String] = []
-        if let lanHost = gateway.lanHost { lines.append("LAN: \(lanHost)") }
-        if let tailnet = gateway.tailnetDns { lines.append("Tailnet: \(tailnet)") }
-
-        let gatewayPort = gateway.gatewayPort
-        let canvasPort = gateway.canvasPort
-        if gatewayPort != nil || canvasPort != nil {
-            let gw = gatewayPort.map(String.init) ?? "-"
-            let canvas = canvasPort.map(String.init) ?? "-"
-            lines.append("Ports: gateway \(gw) / canvas \(canvas)")
+    private func applyURL(_ url: URL) {
+        guard let host = url.host, !host.isEmpty else { return }
+        self.manualHost = host
+        if let port = url.port {
+            self.manualPortText = String(port)
+        } else {
+            self.manualPortText = ""
         }
-
-        if lines.isEmpty {
-            lines.append(gateway.debugID)
+        let scheme = (url.scheme ?? "").lowercased()
+        if scheme == "wss" || scheme == "https" {
+            self.manualUseTLS = true
+        } else if scheme == "ws" || scheme == "http" {
+            self.manualUseTLS = false
         }
+    }
 
+    private func decodeSetupPayload(raw: String) -> SetupPayload? {
+        if let payload = decodeSetupPayloadFromJSON(raw) {
+            return payload
+        }
+        if let decoded = decodeBase64Payload(raw),
+           let payload = decodeSetupPayloadFromJSON(decoded)
+        {
+            return payload
+        }
+        return nil
+    }
+
+    private func decodeSetupPayloadFromJSON(_ json: String) -> SetupPayload? {
+        guard let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(SetupPayload.self, from: data)
+    }
+
+    private func decodeBase64Payload(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let normalized = trimmed
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let padding = normalized.count % 4
+        let padded = padding == 0 ? normalized : normalized + String(repeating: "=", count: 4 - padding)
+        guard let data = Data(base64Encoded: padded) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+}
+
+private struct ConnectionStatusBox: View {
+    let statusLines: [String]
+    let secondaryLine: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(self.statusLines, id: \.self) { line in
+                Text(line)
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            if let secondaryLine, !secondaryLine.isEmpty {
+                Text(secondaryLine)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    static func defaultLines(
+        appModel: NodeAppModel,
+        gatewayController: GatewayConnectionController
+    ) -> [String] {
+        var lines: [String] = [
+            "gateway: \(appModel.gatewayStatusText)",
+            "discovery: \(gatewayController.discoveryStatusText)",
+        ]
+        lines.append("server: \(appModel.gatewayServerName ?? "—")")
+        lines.append("address: \(appModel.gatewayRemoteAddress ?? "—")")
         return lines
     }
 }

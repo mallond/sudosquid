@@ -12,81 +12,85 @@ const CANVAS_COMMANDS = [
   "canvas.a2ui.reset",
 ];
 
-const CAMERA_COMMANDS = ["camera.list", "camera.snap", "camera.clip"];
+const CAMERA_COMMANDS = ["camera.list"];
+const CAMERA_DANGEROUS_COMMANDS = ["camera.snap", "camera.clip"];
 
-const SCREEN_COMMANDS = ["screen.record"];
+const SCREEN_DANGEROUS_COMMANDS = ["screen.record"];
 
 const LOCATION_COMMANDS = ["location.get"];
 
-const SMS_COMMANDS = ["sms.send"];
+const DEVICE_COMMANDS = ["device.info", "device.status"];
 
-const DEVICE_COMMANDS = ["device.status", "device.info"];
+const CONTACTS_COMMANDS = ["contacts.search"];
+const CONTACTS_DANGEROUS_COMMANDS = ["contacts.add"];
+
+const CALENDAR_COMMANDS = ["calendar.events"];
+const CALENDAR_DANGEROUS_COMMANDS = ["calendar.add"];
+
+const REMINDERS_COMMANDS = ["reminders.list"];
+const REMINDERS_DANGEROUS_COMMANDS = ["reminders.add"];
 
 const PHOTOS_COMMANDS = ["photos.latest"];
 
-const CONTACTS_COMMANDS = ["contacts.search", "contacts.add"];
-
-const CALENDAR_COMMANDS = ["calendar.events", "calendar.add"];
-
-const REMINDERS_COMMANDS = ["reminders.list", "reminders.add"];
-
 const MOTION_COMMANDS = ["motion.activity", "motion.pedometer"];
 
-const SYSTEM_NOTIFY_COMMANDS = ["system.notify"];
+const SMS_DANGEROUS_COMMANDS = ["sms.send"];
 
-const CHAT_COMMANDS = ["chat.push"];
+// iOS nodes don't implement system.run/which, but they do support notifications.
+const IOS_SYSTEM_COMMANDS = ["system.notify"];
 
-const TALK_COMMANDS = ["talk.ptt.start", "talk.ptt.stop", "talk.ptt.cancel", "talk.ptt.once"];
+const SYSTEM_COMMANDS = ["system.run", "system.which", "system.notify", "browser.proxy"];
 
-const SYSTEM_COMMANDS = [
-  "system.run",
-  "system.which",
-  "system.notify",
-  "system.execApprovals.get",
-  "system.execApprovals.set",
-  "browser.proxy",
+// "High risk" node commands. These can be enabled by explicitly adding them to
+// `gateway.nodes.allowCommands` (and ensuring they're not blocked by denyCommands).
+export const DEFAULT_DANGEROUS_NODE_COMMANDS = [
+  ...CAMERA_DANGEROUS_COMMANDS,
+  ...SCREEN_DANGEROUS_COMMANDS,
+  ...CONTACTS_DANGEROUS_COMMANDS,
+  ...CALENDAR_DANGEROUS_COMMANDS,
+  ...REMINDERS_DANGEROUS_COMMANDS,
+  ...SMS_DANGEROUS_COMMANDS,
 ];
 
 const PLATFORM_DEFAULTS: Record<string, string[]> = {
   ios: [
     ...CANVAS_COMMANDS,
     ...CAMERA_COMMANDS,
-    ...SCREEN_COMMANDS,
     ...LOCATION_COMMANDS,
-    ...SYSTEM_NOTIFY_COMMANDS,
-    ...CHAT_COMMANDS,
     ...DEVICE_COMMANDS,
-    ...PHOTOS_COMMANDS,
     ...CONTACTS_COMMANDS,
     ...CALENDAR_COMMANDS,
     ...REMINDERS_COMMANDS,
+    ...PHOTOS_COMMANDS,
     ...MOTION_COMMANDS,
-    ...TALK_COMMANDS,
+    ...IOS_SYSTEM_COMMANDS,
   ],
   android: [
     ...CANVAS_COMMANDS,
     ...CAMERA_COMMANDS,
-    ...SCREEN_COMMANDS,
     ...LOCATION_COMMANDS,
-    ...SMS_COMMANDS,
+    ...DEVICE_COMMANDS,
+    ...CONTACTS_COMMANDS,
+    ...CALENDAR_COMMANDS,
+    ...REMINDERS_COMMANDS,
+    ...PHOTOS_COMMANDS,
+    ...MOTION_COMMANDS,
   ],
   macos: [
     ...CANVAS_COMMANDS,
     ...CAMERA_COMMANDS,
-    ...SCREEN_COMMANDS,
     ...LOCATION_COMMANDS,
+    ...DEVICE_COMMANDS,
+    ...CONTACTS_COMMANDS,
+    ...CALENDAR_COMMANDS,
+    ...REMINDERS_COMMANDS,
+    ...PHOTOS_COMMANDS,
+    ...MOTION_COMMANDS,
     ...SYSTEM_COMMANDS,
   ],
   linux: [...SYSTEM_COMMANDS],
   windows: [...SYSTEM_COMMANDS],
-  unknown: [
-    ...CANVAS_COMMANDS,
-    ...CAMERA_COMMANDS,
-    ...SCREEN_COMMANDS,
-    ...LOCATION_COMMANDS,
-    ...SMS_COMMANDS,
-    ...SYSTEM_COMMANDS,
-  ],
+  unknown: [...CANVAS_COMMANDS, ...CAMERA_COMMANDS, ...LOCATION_COMMANDS, ...SYSTEM_COMMANDS],
 };
 
 function normalizePlatformId(platform?: string, deviceFamily?: string): string {

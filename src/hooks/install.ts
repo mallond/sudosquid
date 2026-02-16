@@ -10,6 +10,7 @@ import {
   resolvePackedRootDir,
 } from "../infra/archive.js";
 import { installPackageDir } from "../infra/install-package-dir.js";
+import { resolveSafeInstallDir, unscopedPackageName } from "../infra/install-safe-path.js";
 import { validateRegistryNpmSpec } from "../infra/npm-registry-spec.js";
 import { runCommandWithTimeout } from "../process/exec.js";
 import { CONFIG_DIR, resolveUserPath } from "../utils.js";
@@ -38,22 +39,6 @@ export type InstallHooksResult =
 
 const defaultLogger: HookInstallLogger = {};
 
-function unscopedPackageName(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return trimmed;
-  }
-  return trimmed.includes("/") ? (trimmed.split("/").pop() ?? trimmed) : trimmed;
-}
-
-function safeDirName(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    return trimmed;
-  }
-  return trimmed.replaceAll("/", "__").replaceAll("\\", "__");
-}
-
 function validateHookId(hookId: string): string | null {
   if (!hookId) {
     return "invalid hook name: missing";
@@ -73,30 +58,15 @@ export function resolveHookInstallDir(hookId: string, hooksDir?: string): string
   if (hookIdError) {
     throw new Error(hookIdError);
   }
-  const targetDirResult = resolveSafeInstallDir(hooksBase, hookId);
+  const targetDirResult = resolveSafeInstallDir({
+    baseDir: hooksBase,
+    id: hookId,
+    invalidNameMessage: "invalid hook name: path traversal detected",
+  });
   if (!targetDirResult.ok) {
     throw new Error(targetDirResult.error);
   }
   return targetDirResult.path;
-}
-
-function resolveSafeInstallDir(
-  hooksDir: string,
-  hookId: string,
-): { ok: true; path: string } | { ok: false; error: string } {
-  const targetDir = path.join(hooksDir, safeDirName(hookId));
-  const resolvedBase = path.resolve(hooksDir);
-  const resolvedTarget = path.resolve(targetDir);
-  const relative = path.relative(resolvedBase, resolvedTarget);
-  if (
-    !relative ||
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    return { ok: false, error: "invalid hook name: path traversal detected" };
-  }
-  return { ok: true, path: targetDir };
 }
 
 async function ensureOpenClawHooks(manifest: HookPackageManifest) {
@@ -109,6 +79,30 @@ async function ensureOpenClawHooks(manifest: HookPackageManifest) {
     throw new Error("package.json openclaw.hooks is empty");
   }
   return list;
+}
+
+function resolveHookInstallModeOptions(params: {
+  logger?: HookInstallLogger;
+  mode?: "install" | "update";
+  dryRun?: boolean;
+}): { logger: HookInstallLogger; mode: "install" | "update"; dryRun: boolean } {
+  return {
+    logger: params.logger ?? defaultLogger,
+    mode: params.mode ?? "install",
+    dryRun: params.dryRun ?? false,
+  };
+}
+
+function resolveTimedHookInstallModeOptions(params: {
+  logger?: HookInstallLogger;
+  timeoutMs?: number;
+  mode?: "install" | "update";
+  dryRun?: boolean;
+}): { logger: HookInstallLogger; timeoutMs: number; mode: "install" | "update"; dryRun: boolean } {
+  return {
+    ...resolveHookInstallModeOptions(params),
+    timeoutMs: params.timeoutMs ?? 120_000,
+  };
 }
 
 async function resolveHookNameFromDir(hookDir: string): Promise<string> {
@@ -146,10 +140,7 @@ async function installHookPackageFromDir(params: {
   dryRun?: boolean;
   expectedHookPackId?: string;
 }): Promise<InstallHooksResult> {
-  const logger = params.logger ?? defaultLogger;
-  const timeoutMs = params.timeoutMs ?? 120_000;
-  const mode = params.mode ?? "install";
-  const dryRun = params.dryRun ?? false;
+  const { logger, timeoutMs, mode, dryRun } = resolveTimedHookInstallModeOptions(params);
 
   const manifestPath = path.join(params.packageDir, "package.json");
   if (!(await fileExists(manifestPath))) {
@@ -188,7 +179,11 @@ async function installHookPackageFromDir(params: {
     : path.join(CONFIG_DIR, "hooks");
   await fs.mkdir(hooksDir, { recursive: true });
 
-  const targetDirResult = resolveSafeInstallDir(hooksDir, hookPackId);
+  const targetDirResult = resolveSafeInstallDir({
+    baseDir: hooksDir,
+    id: hookPackId,
+    invalidNameMessage: "invalid hook name: path traversal detected",
+  });
   if (!targetDirResult.ok) {
     return { ok: false, error: targetDirResult.error };
   }
@@ -248,9 +243,7 @@ async function installHookFromDir(params: {
   dryRun?: boolean;
   expectedHookPackId?: string;
 }): Promise<InstallHooksResult> {
-  const logger = params.logger ?? defaultLogger;
-  const mode = params.mode ?? "install";
-  const dryRun = params.dryRun ?? false;
+  const { logger, mode, dryRun } = resolveHookInstallModeOptions(params);
 
   await validateHookDir(params.hookDir);
   const hookName = await resolveHookNameFromDir(params.hookDir);
@@ -271,7 +264,11 @@ async function installHookFromDir(params: {
     : path.join(CONFIG_DIR, "hooks");
   await fs.mkdir(hooksDir, { recursive: true });
 
-  const targetDirResult = resolveSafeInstallDir(hooksDir, hookName);
+  const targetDirResult = resolveSafeInstallDir({
+    baseDir: hooksDir,
+    id: hookName,
+    invalidNameMessage: "invalid hook name: path traversal detected",
+  });
   if (!targetDirResult.ok) {
     return { ok: false, error: targetDirResult.error };
   }
@@ -383,10 +380,7 @@ export async function installHooksFromNpmSpec(params: {
   dryRun?: boolean;
   expectedHookPackId?: string;
 }): Promise<InstallHooksResult> {
-  const logger = params.logger ?? defaultLogger;
-  const timeoutMs = params.timeoutMs ?? 120_000;
-  const mode = params.mode ?? "install";
-  const dryRun = params.dryRun ?? false;
+  const { logger, timeoutMs, mode, dryRun } = resolveTimedHookInstallModeOptions(params);
   const expectedHookPackId = params.expectedHookPackId;
   const spec = params.spec.trim();
   const specError = validateRegistryNpmSpec(spec);
